@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/rs/cors"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
@@ -15,7 +20,25 @@ var addr = flag.String("addr", ":8080", "http service address")
 func main() {
 	flag.Parse()
 	hubs := map[int8]*Hub{}
+
+	fmt.Println("-------------------------------------------------------------", new(time.Time))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var err error
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://mongo:27017"))
+	if err != nil {
+		fmt.Println("[mongo] err connect", err)
+	}
+	err = client.Ping(ctx, readpref.Primary())
+	if err != nil {
+		fmt.Println("[mongo] err ping mongo", err)
+	} else {
+		fmt.Println("[mongo] ping mongo SUCCESS")
+	}
+
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", serveHome)
 	mux.HandleFunc("/ws/chat", func(w http.ResponseWriter, r *http.Request) {
 		var chatID int8
 		urlQuery := r.URL.Query()
@@ -39,7 +62,7 @@ func main() {
 
 	handler := initCors(mux)
 
-	err := http.ListenAndServe(*addr, handler)
+	err = http.ListenAndServe(*addr, handler)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
@@ -57,4 +80,17 @@ func initCors(router http.Handler) http.Handler {
 
 	// Insert the middleware
 	return c.Handler(router)
+}
+
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL)
+	if r.URL.Path != "/" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.ServeFile(w, r, "home.html")
 }
