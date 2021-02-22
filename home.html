@@ -1,101 +1,211 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <title>Chat Example</title>
+    <title>GameChat</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;1,700&display=swap"
+        rel="stylesheet">
     <script type="text/javascript">
         window.onload = function () {
-            var conn;
-            var msg = document.getElementById("msg");
-            var log = document.getElementById("log");
+            let socket;
+            let msg = document.getElementById("msg");
+            let wrapper = document.querySelector("#log");
+            let nikname = 'MyName'
 
-            function appendLog(item) {
-                var doScroll = log.scrollTop > log.scrollHeight - log.clientHeight - 1;
-                log.appendChild(item);
-                if (doScroll) {
-                    log.scrollTop = log.scrollHeight - log.clientHeight;
-                }
+            function createMessage(wrap, itemClass, data) {
+                element = document.createElement("div");
+                element.classList.add(`${itemClass}`)
+                element.innerText = data;
+
+                return wrap.appendChild(element);
             }
 
             document.getElementById("form").onsubmit = function () {
-                if (!conn) {
+                if (!socket) {
                     return false;
                 }
                 if (!msg.value) {
                     return false;
                 }
-                conn.send(msg.value);
+                socket.send(msg.value);
                 msg.value = "";
                 return false;
             };
 
             if (window["WebSocket"]) {
-                conn = new WebSocket("ws://" + document.location.host + "/ws/chat?id=2");
-                conn.onclose = function (evt) {
-                    var item = document.createElement("div");
-                    item.innerHTML = "<b>Connection closed.</b>";
-                    appendLog(item);
+                let currentURL = window.location.href
+                let computedID = currentURL.split('chat/')[1];
+                let resultID = computedID.split('.html')[0];
+
+
+                socket = new WebSocket(`ws://localhost:8080/ws/chat?id=${resultID}&nickname=${nikname}`);
+
+                socket.onclose = function (event) {
+                    let item = document.createElement("div");
+                    item.innerHTML = "<div class='error'>Connection closed.</div>";
+
                 };
-                conn.onmessage = function (evt) {
-                    console.log('лупа', evt.data)
-                    var messages = evt.data.split('\n');
-                    for (var i = 0; i < messages.length; i++) {
-                        var item = document.createElement("div");
-                        item.innerText = messages[i];
-                        appendLog(item);
+                socket.onmessage = function (event) {
+                    console.log('event.data', event.data)
+
+                    const json = event.data;
+                    const obj = JSON.parse(json);
+
+                    let itemMessage = document.createElement("div");
+
+                    itemMessage.classList.add('item-message')
+
+                    if (obj.nickname == nikname) {
+                        itemMessage.classList.add('host')
                     }
+                    wrapper.appendChild(itemMessage);
+
+                    let dateMessage = new Date(obj.time);
+
+                    let timeMessage;
+                    if (dateMessage.getMinutes() < 10) {
+                        timeMessage = `${dateMessage.getHours()}:0${dateMessage.getMinutes()}`
+                    } else {
+                        timeMessage = `${dateMessage.getHours()}:${dateMessage.getMinutes()}`
+                    }
+
+                    createMessage(itemMessage, 'item-message__login', obj.nickname)
+                    createMessage(itemMessage, 'item-message__text', obj.message)
+                    createMessage(itemMessage, 'item-message__data', timeMessage)
+
                 };
+
             } else {
-                var item = document.createElement("div");
-                item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
-                appendLog(item);
+                let item = document.createElement("div");
+                item.innerHTML = "<b class='error'>Your browser does not support WebSockets.</b>";
             }
+
         };
+
     </script>
-    <style type="text/css">
-        html {
-            overflow: hidden;
-        }
 
-        body {
-            overflow: hidden;
-            padding: 0;
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            background: gray;
-        }
-
-        #log {
-            background: white;
-            margin: 0;
-            padding: 0.5em 0.5em 0.5em 0.5em;
-            position: absolute;
-            top: 0.5em;
-            left: 0.5em;
-            right: 0.5em;
-            bottom: 3em;
-            overflow: auto;
-        }
-
-        #form {
-            padding: 0 0.5em 0 0.5em;
-            margin: 0;
-            position: absolute;
-            bottom: 1em;
-            left: 0px;
-            width: 100%;
-            overflow: hidden;
-        }
-    </style>
 </head>
 
 <body>
-    <div id="log"></div>
-    <form id="form">
-        <input type="submit" value="Send" />
-        <input type="text" id="msg" size="64" autofocus />
-    </form>
+    <div class="container">
+        <div id="log"></div>
+        <form id="form">
+            <input type="text" id="msg" size="64" autofocus />
+            <input class="btn" type="submit" value="Send" />
+        </form>
+    </div>
 </body>
+
+<style type="text/css">
+    html {
+        font-family: 'Roboto', sans-serif;
+    }
+
+    * {
+        box-sizing: border-box;
+        font-family: 'Roboto', sans-serif;
+    }
+
+    body {
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #e9e9ec;
+    }
+
+    .container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 15px;
+    }
+
+    #log {
+        background: white;
+        margin: 0;
+        overflow: auto;
+        width: 100%;
+        padding: 10px;
+        height: 500px;
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #form {
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+    }
+
+    input {
+        width: 100%;
+        height: 34px;
+        padding: 0 10px;
+        outline: none;
+        border: 0;
+    }
+
+    .btn {
+        width: 100px;
+        margin-left: 10px;
+        padding: 0;
+    }
+
+    .error {
+        color: red;
+        font-weight: 500;
+    }
+
+    .item-message {
+
+        width: auto;
+        display: inline-flex;
+        flex-direction: column;
+        margin-bottom: 8px;
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .item-message.host {
+        margin: 0 0 0 auto;
+
+    }
+
+    .item-message__text {
+        font-size: 14px;
+        border: 1px solid #d3f2ff;
+        border-radius: 3px;
+        background-color: #f8fdff;
+        padding: 8px;
+    }
+
+    .item-message.host .item-message__text {
+        font-size: 14px;
+        background-color: #e6f7ff;
+        border: 1px solid #b9eaff;
+    }
+
+    .item-message__login {
+        font-size: 14px;
+        padding-left: 8px;
+        margin-bottom: 3px;
+        font-weight: 500;
+        color: #768afb;
+    }
+
+    .item-message__data {
+        font-size: 10px;
+        text-align: right;
+        margin-top: 2px;
+        color: #b6b7bb;
+    }
+</style>
 
 </html>
